@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+application/backend/node_modules/
+application/frontend/node_modules/
+application/frontend/dist/
+traefik/certs/*.key
+traefik/certs/*.crt
+traefik/certs/*.cnf

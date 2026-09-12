@@ -1,0 +1,59 @@
+# ==============================================================================
+# traefik.yml — Traefik v3 Static Configuration for Docker Swarm
+# ==============================================================================
+# CRITICAL V3 UPGRADE NOTE:
+#   Traefik v3 split the Docker provider. The legacy v2 argument:
+#     --providers.docker.swarmMode=true
+#   has been replaced with the dedicated Swarm provider:
+#     --providers.swarm.endpoint=unix:///var/run/docker.sock
+# ==============================================================================
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# 1. EntryPoints (HTTP & HTTPS)
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    http:
+      tls: {}
+
+# 2. Providers
+providers:
+  # Traefik v3 Dedicated Swarm Provider
+  swarm:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: "shop_frontend-net"
+
+  # Dynamic File Provider for TLS Certificates and Middleware
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+# 3. Healthcheck & Diagnostic API
+ping:
+  entryPoint: "web"
+
+api:
+  dashboard: true
+  insecure: true
+
+# 4. Logging
+log:
+  level: "INFO"
+  format: "common"
+
+accessLog:
+  format: "common"
+  bufferingSize: 100

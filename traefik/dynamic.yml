@@ -1,0 +1,28 @@
+# ==============================================================================
+# dynamic.yml — Traefik Dynamic Configuration (File Provider)
+# ==============================================================================
+# Loaded by Traefik via --providers.file.directory=/etc/traefik/dynamic
+# Configures custom TLS certificates mounted from Docker Secrets
+# ==============================================================================
+
+tls:
+  certificates:
+    - certFile: /run/secrets/tls_cert
+      keyFile: /run/secrets/tls_key
+      stores:
+        - default
+
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /run/secrets/tls_cert
+        keyFile: /run/secrets/tls_key
+
+  options:
+    default:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+      sniStrict: false
