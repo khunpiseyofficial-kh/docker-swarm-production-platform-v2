@@ -1,0 +1,116 @@
+# ==============================================================================
+# prometheus.yml — Global Cluster Scrape Configuration
+# ==============================================================================
+# Deployed on: monitoring01 (192.168.0.42)
+# Scrapes:
+#   - Node Exporter (:9100) across all 8 nodes (Swarm + Registry + Monitoring)
+#   - cAdvisor (:8080) across Swarm nodes
+#   - Traefik metrics (:8080)
+#
+# Hot-reload enabled via: curl -X POST http://192.168.0.42:9090/-/reload
+# ==============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  # ----------------------------------------------------------------------------
+  # 1. Host-Level Metrics: Node Exporter (All 8 Cluster Nodes)
+  # ----------------------------------------------------------------------------
+  - job_name: "node-exporter"
+    static_configs:
+      - targets:
+          - "192.168.0.21:9100" # swarm-mgr01
+          - "192.168.0.22:9100" # swarm-mgr02
+          - "192.168.0.23:9100" # swarm-mgr03
+          - "192.168.0.31:9100" # swarm-worker01
+          - "192.168.0.32:9100" # swarm-worker02
+          - "192.168.0.33:9100" # swarm-worker03
+          - "192.168.0.41:9100" # registry01 (standalone host)
+          - "192.168.0.42:9100" # monitoring01 (self-scrape)
+        labels:
+          environment: "lab-production"
+
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "192.168.0.21:9100"
+        target_label: instance
+        replacement: "swarm-mgr01"
+      - source_labels: [__address__]
+        regex: "192.168.0.22:9100"
+        target_label: instance
+        replacement: "swarm-mgr02"
+      - source_labels: [__address__]
+        regex: "192.168.0.23:9100"
+        target_label: instance
+        replacement: "swarm-mgr03"
+      - source_labels: [__address__]
+        regex: "192.168.0.31:9100"
+        target_label: instance
+        replacement: "swarm-worker01"
+      - source_labels: [__address__]
+        regex: "192.168.0.32:9100"
+        target_label: instance
+        replacement: "swarm-worker02"
+      - source_labels: [__address__]
+        regex: "192.168.0.33:9100"
+        target_label: instance
+        replacement: "swarm-worker03"
+      - source_labels: [__address__]
+        regex: "192.168.0.41:9100"
+        target_label: instance
+        replacement: "registry01"
+      - source_labels: [__address__]
+        regex: "192.168.0.42:9100"
+        target_label: instance
+        replacement: "monitoring01"
+
+  # ----------------------------------------------------------------------------
+  # 2. Container-Level Metrics: cAdvisor (Swarm Nodes)
+  # ----------------------------------------------------------------------------
+  - job_name: "cadvisor"
+    static_configs:
+      - targets:
+          - "192.168.0.21:8080" # swarm-mgr01
+          - "192.168.0.22:8080" # swarm-mgr02
+          - "192.168.0.23:8080" # swarm-mgr03
+          - "192.168.0.31:8080" # swarm-worker01
+          - "192.168.0.32:8080" # swarm-worker02
+          - "192.168.0.33:8080" # swarm-worker03
+        labels:
+          environment: "lab-production"
+
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "192.168.0.21:8080"
+        target_label: instance
+        replacement: "swarm-mgr01"
+      - source_labels: [__address__]
+        regex: "192.168.0.22:8080"
+        target_label: instance
+        replacement: "swarm-mgr02"
+      - source_labels: [__address__]
+        regex: "192.168.0.23:8080"
+        target_label: instance
+        replacement: "swarm-mgr03"
+      - source_labels: [__address__]
+        regex: "192.168.0.31:8080"
+        target_label: instance
+        replacement: "swarm-worker01"
+      - source_labels: [__address__]
+        regex: "192.168.0.32:8080"
+        target_label: instance
+        replacement: "swarm-worker02"
+      - source_labels: [__address__]
+        regex: "192.168.0.33:8080"
+        target_label: instance
+        replacement: "swarm-worker03"
+
+  # ----------------------------------------------------------------------------
+  # 3. Prometheus Self-Monitoring
+  # ----------------------------------------------------------------------------
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
