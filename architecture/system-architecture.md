@@ -48,29 +48,48 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    Client["Client Browser (HTTPS / shop.local)"] --> IngressMesh["Docker Swarm Routing Mesh (Port 80/443)"]
+    Client["Client Browser
 
-    subgraph IngressTier["Ingress Tier (node.labels.ingress == true)"]
-        IngressMesh --> Traefik1["Traefik v3 Replica 1 (swarm-mgr01)"]
-        IngressMesh --> Traefik2["Traefik v3 Replica 2 (swarm-mgr02)"]
-    end
+(HTTPS / shop.local)"] --> IngressMesh["Docker Swarm Routing Mesh
 
-    subgraph OverlayFrontend["frontend-net (Overlay 10.10.1.0/24)"]
-        Traefik1 -->|Host: shop.local| Frontend["React SPA (Nginx Unprivileged :8080)"]
-        Traefik2 -->|Host: shop.local| Frontend
-        Traefik1 -->|"Path: /api (Priority 100)"| Backend["Node.js API (:3000)"]
-        Traefik2 -->|"Path: /api (Priority 100)"| Backend
-        Frontend -.->|Dynamic Proxy /api| Backend
-    end
 
-    subgraph OverlayBackend["backend-net (Overlay 10.10.2.0/24)"]
-        Backend -->|Cache-Aside 60s TTL| Redis["Redis 7 (AOF Durability)"]
-        Backend -->|ACID Persistence| MariaDB["MariaDB 11.4 (:3306)"]
-    end
+(Port 80/443)"]
 
-    subgraph StorageTier["Persistent Storage Node (swarm-worker03)"]
-        MariaDB --> NamedVol[("Named Volume: mariadb-data\n(/var/lib/mysql)")]
-    end
+subgraph IngressTier["Ingress Tier (node.labels.ingress == true)"]
+    IngressMesh --> Traefik1["Traefik v3 Replica 1
+
+(swarm-mgr01)"]
+IngressMesh --> Traefik2["Traefik v3 Replica 2
+
+
+(swarm-mgr02)"]
+end
+
+subgraph OverlayFrontend["frontend-net (Overlay 10.10.1.0/24)"]
+    Traefik1 -->|Host: shop.local| Frontend["React SPA
+
+(Nginx Unprivileged :8080)"]
+Traefik2 -->|Host: shop.local| Frontend
+Traefik1 -->|Path: /api #40;Priority 100#41;| Backend["Node.js API (:3000)"]
+Traefik2 -->|Path: /api #40;Priority 100#41;| Backend
+Frontend -.->|Dynamic Proxy /api| Backend
+end
+
+subgraph OverlayBackend["backend-net (Overlay 10.10.2.0/24)"]
+    Backend -->|Cache-Aside 60s TTL| Redis["Redis 7
+
+(AOF Durability)"]
+Backend -->|ACID Persistence| MariaDB["MariaDB 11.4
+
+
+(:3306)"]
+end
+
+subgraph StorageTier["Persistent Storage Node (swarm-worker03)"]
+    MariaDB --> NamedVol[("Named Volume: mariadb-data
+
+(/var/lib/mysql)")]
+end
 ```
 
 ---
