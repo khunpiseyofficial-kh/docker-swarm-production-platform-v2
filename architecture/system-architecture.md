@@ -58,8 +58,8 @@ flowchart TD
     subgraph OverlayFrontend["frontend-net (Overlay 10.10.1.0/24)"]
         Traefik1 -->|Host: shop.local| Frontend["React SPA (Nginx Unprivileged :8080)"]
         Traefik2 -->|Host: shop.local| Frontend
-        Traefik1 -->|Path: /api (Priority 100)| Backend["Node.js API (:3000)"]
-        Traefik2 -->|Path: /api (Priority 100)| Backend
+        Traefik1 -->|"Path: /api (Priority 100)"| Backend["Node.js API (:3000)"]
+        Traefik2 -->|"Path: /api (Priority 100)"| Backend
         Frontend -.->|Dynamic Proxy /api| Backend
     end
 
