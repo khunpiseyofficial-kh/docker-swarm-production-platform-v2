@@ -75,7 +75,7 @@ echo "================================================================="
 echo "[+] Deploying Stack '${STACK_NAME}' from ${STACK_FILE}..."
 echo "================================================================="
 
-docker stack deploy --compose-file "${STACK_FILE}" "${STACK_NAME}"
+docker stack deploy --with-registry-auth --compose-file "${STACK_FILE}" "${STACK_NAME}"
 
 echo ""
 echo "[+] Monitoring service convergence (waiting for replicas to become ready)..."
