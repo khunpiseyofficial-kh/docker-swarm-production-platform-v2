@@ -16,6 +16,7 @@ This runbook documents 10 genuine, evidence-based technical incidents, bugs, and
 8. [Ubuntu Server 24.04 LVM 50% Capacity Stranding](#8-ubuntu-server-2404-lvm-50-capacity-stranding)
 9. [Docker Engine Rejection of Private Registry Certs Missing SAN](#9-docker-engine-rejection-of-private-registry-certs-missing-san)
 10. [Swarm `update_config` Monitor Window Shorter than Healthcheck Start Period](#10-swarm-update_config-monitor-window-shorter-than-healthcheck-start-period)
+11. [cAdvisor Crash on Startup with Unsupported `kmem` Metric Flag](#11-cadvisor-crash-on-startup-with-unsupported-kmem-metric-flag)
 
 ---
 
@@ -359,3 +360,46 @@ update_config:
   monitor: 25s # Must be > healthcheck start_period (15s)
 ```
 Now, Swarm monitors the task until the healthcheck actually evaluates and confirms positive health before updating the next replica.
+
+---
+
+## 11. cAdvisor Crash on Startup with Unsupported `kmem` Metric Flag
+
+### Symptom
+All `shop_cadvisor` global tasks on manager and worker nodes crashed immediately upon container startup with `task: non-zero exit (2)`. `docker service ls` showed `shop_cadvisor` with `0/6` replicas running.
+
+### Diagnostic Steps
+1. Inspected task failure details:
+   ```bash
+   docker service ps shop_cadvisor --no-trunc
+   ```
+   Observed repeated failures across all nodes reporting `Failed X seconds ago "task: non-zero exit (2)"`.
+2. Checked service logs:
+   ```bash
+   docker service logs shop_cadvisor 2>&1 | grep -i "invalid"
+   ```
+   Found the explicit fatal error:
+   ```text
+   invalid value "advtcp,process,kmem" for flag -disable_metrics: unsupported metric "kmem" specified
+   ```
+   Followed by cAdvisor printing the full command-line help flags and exiting with code 2.
+3. Tested supported options against the container:
+   ```bash
+   docker run --rm gcr.io/cadvisor/cadvisor:v0.49.1 --help 2>&1 | grep -A 2 "disable_metrics"
+   ```
+   Confirmed `kmem` was deprecated and eliminated from supported metric groups in cAdvisor v0.49+.
+
+### Root Cause
+Passing `--disable_metrics=advtcp,process,kmem` in `stack/docker-stack.yml`. Go's `flag` parser treats any unrecognized option in a flag list as an unrecoverable validation error, terminating the process with status 2 before cAdvisor initializes.
+
+### Permanent Fix
+In `stack/docker-stack.yml`, removed `,kmem` from the `--disable_metrics` argument:
+```yaml
+cadvisor:
+  image: gcr.io/cadvisor/cadvisor:v0.49.1
+  command:
+    - '--docker_only=true'
+    - '--housekeeping_interval=10s'
+    - '--disable_metrics=advtcp,process'
+```
+Re-deployed the stack; all 6 `cadvisor` instances immediately stabilized in `Running` state and began exporting metrics on `:8080/metrics`.
