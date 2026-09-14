@@ -5,7 +5,7 @@
 # Scrapes:
 #   - Node Exporter (:9100) across all 8 nodes (Swarm + Registry + Monitoring)
 #   - cAdvisor (:8080) across Swarm nodes
-#   - Traefik metrics (:8080)
+#   - Traefik metrics (:80)
 #
 # Hot-reload enabled via: curl -X POST http://192.168.0.42:9090/-/reload
 # ==============================================================================
@@ -21,92 +21,40 @@ scrape_configs:
   # ----------------------------------------------------------------------------
   - job_name: "node-exporter"
     static_configs:
-      - targets:
-          - "192.168.0.21:9100" # swarm-mgr01
-          - "192.168.0.22:9100" # swarm-mgr02
-          - "192.168.0.23:9100" # swarm-mgr03
-          - "192.168.0.31:9100" # swarm-worker01
-          - "192.168.0.32:9100" # swarm-worker02
-          - "192.168.0.33:9100" # swarm-worker03
-          - "192.168.0.41:9100" # registry01 (standalone host)
-          - "192.168.0.42:9100" # monitoring01 (self-scrape)
-        labels:
-          environment: "lab-production"
-
-    relabel_configs:
-      - source_labels: [__address__]
-        regex: "192.168.0.21:9100"
-        target_label: instance
-        replacement: "swarm-mgr01"
-      - source_labels: [__address__]
-        regex: "192.168.0.22:9100"
-        target_label: instance
-        replacement: "swarm-mgr02"
-      - source_labels: [__address__]
-        regex: "192.168.0.23:9100"
-        target_label: instance
-        replacement: "swarm-mgr03"
-      - source_labels: [__address__]
-        regex: "192.168.0.31:9100"
-        target_label: instance
-        replacement: "swarm-worker01"
-      - source_labels: [__address__]
-        regex: "192.168.0.32:9100"
-        target_label: instance
-        replacement: "swarm-worker02"
-      - source_labels: [__address__]
-        regex: "192.168.0.33:9100"
-        target_label: instance
-        replacement: "swarm-worker03"
-      - source_labels: [__address__]
-        regex: "192.168.0.41:9100"
-        target_label: instance
-        replacement: "registry01"
-      - source_labels: [__address__]
-        regex: "192.168.0.42:9100"
-        target_label: instance
-        replacement: "monitoring01"
+      - targets: ["192.168.0.21:9100"]
+        labels: { instance: "swarm-mgr01", environment: "lab-production" }
+      - targets: ["192.168.0.22:9100"]
+        labels: { instance: "swarm-mgr02", environment: "lab-production" }
+      - targets: ["192.168.0.23:9100"]
+        labels: { instance: "swarm-mgr03", environment: "lab-production" }
+      - targets: ["192.168.0.31:9100"]
+        labels: { instance: "swarm-worker01", environment: "lab-production" }
+      - targets: ["192.168.0.32:9100"]
+        labels: { instance: "swarm-worker02", environment: "lab-production" }
+      - targets: ["192.168.0.33:9100"]
+        labels: { instance: "swarm-worker03", environment: "lab-production" }
+      - targets: ["192.168.0.41:9100"]
+        labels: { instance: "registry01", environment: "lab-production" }
+      - targets: ["node-exporter-monitoring01:9100"]
+        labels: { instance: "monitoring01", environment: "lab-production" }
 
   # ----------------------------------------------------------------------------
   # 2. Container-Level Metrics: cAdvisor (Swarm Nodes)
   # ----------------------------------------------------------------------------
   - job_name: "cadvisor"
     static_configs:
-      - targets:
-          - "192.168.0.21:8080" # swarm-mgr01
-          - "192.168.0.22:8080" # swarm-mgr02
-          - "192.168.0.23:8080" # swarm-mgr03
-          - "192.168.0.31:8080" # swarm-worker01
-          - "192.168.0.32:8080" # swarm-worker02
-          - "192.168.0.33:8080" # swarm-worker03
-        labels:
-          environment: "lab-production"
-
-    relabel_configs:
-      - source_labels: [__address__]
-        regex: "192.168.0.21:8080"
-        target_label: instance
-        replacement: "swarm-mgr01"
-      - source_labels: [__address__]
-        regex: "192.168.0.22:8080"
-        target_label: instance
-        replacement: "swarm-mgr02"
-      - source_labels: [__address__]
-        regex: "192.168.0.23:8080"
-        target_label: instance
-        replacement: "swarm-mgr03"
-      - source_labels: [__address__]
-        regex: "192.168.0.31:8080"
-        target_label: instance
-        replacement: "swarm-worker01"
-      - source_labels: [__address__]
-        regex: "192.168.0.32:8080"
-        target_label: instance
-        replacement: "swarm-worker02"
-      - source_labels: [__address__]
-        regex: "192.168.0.33:8080"
-        target_label: instance
-        replacement: "swarm-worker03"
+      - targets: ["192.168.0.21:8080"]
+        labels: { instance: "swarm-mgr01", environment: "lab-production" }
+      - targets: ["192.168.0.22:8080"]
+        labels: { instance: "swarm-mgr02", environment: "lab-production" }
+      - targets: ["192.168.0.23:8080"]
+        labels: { instance: "swarm-mgr03", environment: "lab-production" }
+      - targets: ["192.168.0.31:8080"]
+        labels: { instance: "swarm-worker01", environment: "lab-production" }
+      - targets: ["192.168.0.32:8080"]
+        labels: { instance: "swarm-worker02", environment: "lab-production" }
+      - targets: ["192.168.0.33:8080"]
+        labels: { instance: "swarm-worker03", environment: "lab-production" }
 
   # ----------------------------------------------------------------------------
   # 3. Prometheus Self-Monitoring

@@ -81,7 +81,7 @@ flowchart LR
 
     subgraph FrontendOverlay["frontend-net (Overlay 10.10.1.0/24)"]
         Traefik -->|Host: shop.local| Frontend["React Frontend (Nginx)\n(Non-root UID 101)"]
-        Traefik -->|Path: /api (Priority 100)| Backend["Node.js API (Express)\n(Non-root UID 1000)"]
+        Traefik -->|Path: /api #40;Priority 100#41;| Backend["Node.js API (Express)\n(Non-root UID 1000)"]
     end
 
     subgraph BackendOverlay["backend-net (Overlay 10.10.2.0/24)"]
