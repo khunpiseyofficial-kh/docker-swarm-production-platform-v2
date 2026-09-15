@@ -69,7 +69,7 @@ docker run -d \
   -v "/proc:/host/proc:ro" \
   -v "/sys:/host/sys:ro" \
   -v "/:/rootfs:ro,rslave" \
-  prom/node-exporter:v1.8.2 \
+  prom/node-exporter:v1.12.1 \
   --path.procfs=/host/proc \
   --path.sysfs=/host/sys \
   --path.rootfs=/host/root

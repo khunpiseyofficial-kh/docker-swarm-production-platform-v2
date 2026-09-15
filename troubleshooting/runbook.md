@@ -1,6 +1,6 @@
 # Engineering Troubleshooting Runbook & Postmortem Log
 
-This runbook documents 10 genuine, evidence-based technical incidents, bugs, and edge cases encountered, root-caused, and remediated during the design and validation of this platform. Each entry preserves the real symptoms, diagnostic steps, root causes, and permanent resolutions.
+This runbook documents 12 genuine, evidence-based technical incidents, bugs, and edge cases encountered, root-caused, and remediated during the design and validation of this platform. Each entry preserves the real symptoms, diagnostic steps, root causes, and permanent resolutions.
 
 ---
 
@@ -17,6 +17,7 @@ This runbook documents 10 genuine, evidence-based technical incidents, bugs, and
 9. [Docker Engine Rejection of Private Registry Certs Missing SAN](#9-docker-engine-rejection-of-private-registry-certs-missing-san)
 10. [Swarm `update_config` Monitor Window Shorter than Healthcheck Start Period](#10-swarm-update_config-monitor-window-shorter-than-healthcheck-start-period)
 11. [cAdvisor Crash on Startup with Unsupported `kmem` Metric Flag](#11-cadvisor-crash-on-startup-with-unsupported-kmem-metric-flag)
+12. [cAdvisor Metric Loss and 'No Data' in Grafana on Docker 29+ Containerd Snapshotter](#12-cadvisor-metric-loss-and-no-data-in-grafana-on-docker-29-containerd-snapshotter)
 
 ---
 
@@ -403,3 +404,49 @@ cadvisor:
     - '--disable_metrics=advtcp,process'
 ```
 Re-deployed the stack; all 6 `cadvisor` instances immediately stabilized in `Running` state and began exporting metrics on `:8080/metrics`.
+
+---
+
+## 12. cAdvisor Metric Loss and 'No Data' in Grafana on Docker 29+ Containerd Snapshotter
+
+### Symptom
+When accessing Grafana dashboards (`http://192.168.0.42:3000`) for container metrics, all panels (CPU usage, memory consumption, network throughput) displayed "No Data", and the container/service dropdown variables were empty or only listed host systemd services (`systemd-udevd`, `docker.service`, `cron.service`). Prometheus showed `count(container_cpu_usage_seconds_total{name=~".+"})` returning `0` or `1` across the entire cluster.
+
+### Diagnostic Steps
+1. Inspected cAdvisor container logs on active Swarm nodes:
+   ```bash
+   docker service logs shop_cadvisor 2>&1 | grep -i "failed to identify"
+   ```
+   Found repeating errors for every Swarm container:
+   ```text
+   E0914 manager.go:1116] Failed to create existing container: /system.slice/docker-<CONTAINER_ID>.scope: 
+   failed to identify the read-write layer ID for container "<CONTAINER_ID>". - 
+   open /rootfs/var/lib/docker/image/overlayfs/layerdb/mounts/<CONTAINER_ID>/mount-id: no such file or directory
+   ```
+2. Verified Docker engine storage driver:
+   ```bash
+   docker info --format 'Driver: {{.Driver}}, DriverStatus: {{.DriverStatus}}'
+   # Returned: Driver: overlayfs, DriverStatus: [[driver-type io.containerd.snapshotter.v1]]
+   ```
+3. Queried raw cAdvisor metrics directly on port `8080`:
+   ```bash
+   curl -s http://localhost:8080/metrics | grep "^container_cpu_usage_seconds_total"
+   ```
+   Observed that only root cgroups and systemd units (`/system.slice/*.service`) were exported with `name=""` and `image=""`. Zero Docker containers were registered.
+4. Tested flag whitelist parser: confirmed that `-whitelisted_container_labels` requires `-store_container_labels=false` to take effect.
+
+### Root Cause
+1. **Containerd Snapshotter Storage Layout**: Docker 29 on Ubuntu 24.04 defaults to the containerd image store (`io.containerd.snapshotter.v1`). Container layers are stored under `/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/`, and the legacy `/var/lib/docker/image/overlayfs/layerdb/mounts/` directory no longer exists.
+2. **cAdvisor Handler Failure**: cAdvisor v0.49.x hardcodes looking for `layerdb/mounts/<container-id>/mount-id` in its Docker factory. When this path is not found, cAdvisor aborts container creation, completely dropping all container metrics.
+3. **Grafana Filters**: Because all emitted metrics had `name=""` and missing Swarm labels, dashboard queries filtering by `name=~".+"` returned empty result sets.
+
+### Permanent Fix
+1. Upgraded cAdvisor image to **`ghcr.io/google/cadvisor:v0.60.5`**, which includes native support for Docker 29's storage layout.
+2. Configured cAdvisor command flags in `stack/docker-stack.yml` with:
+   - `--docker_only=true`: Excludes non-container system slices.
+   - `--store_container_labels=false`: Enables the container label whitelist filter.
+   - `--whitelisted_container_labels=com.docker.swarm.service.name,com.docker.swarm.task.name,com.docker.swarm.node.id`: Propagates Swarm service and task metadata to Prometheus metrics.
+3. Upgraded Node Exporter to **`prom/node-exporter:v1.12.1`**.
+4. Mirrored both images to `registry01:5000` to ensure reliable pulls across all worker nodes.
+5. Re-deployed the stack: verified that cAdvisor successfully registered all containers, emitted Swarm service labels (`container_label_com_docker_swarm_service_name`), and Grafana dashboard panels populated with live telemetry.
+

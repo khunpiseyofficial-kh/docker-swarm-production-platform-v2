@@ -265,7 +265,7 @@ services:
   # 6. Node Exporter (Global Host-Level Metrics Collection)
   # ----------------------------------------------------------------------------
   node-exporter:
-    image: prom/node-exporter:v1.8.2
+    image: prom/node-exporter:v1.12.1
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
@@ -298,9 +298,11 @@ services:
   # 7. cAdvisor (Global Container-Level Metrics Collection)
   # ----------------------------------------------------------------------------
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: ghcr.io/google/cadvisor:v0.60.5
     command:
       - '--docker_only=true'
+      - '--store_container_labels=false'
+      - '--whitelisted_container_labels=com.docker.swarm.service.name,com.docker.swarm.task.name,com.docker.swarm.node.id'
       - '--housekeeping_interval=10s'
       - '--disable_metrics=advtcp,process'
     ports:
@@ -326,6 +328,6 @@ services:
         condition: on-failure
       resources:
         limits:
-          memory: 300M
+          memory: 512M
         reservations:
           memory: 128M

@@ -44,7 +44,7 @@ services:
       - prometheus
 
   node-exporter:
-    image: prom/node-exporter:v1.8.2
+    image: prom/node-exporter:v1.12.1
     container_name: node-exporter-monitoring01
     restart: always
     command:
