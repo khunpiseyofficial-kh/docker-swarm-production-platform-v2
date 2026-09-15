@@ -1,6 +1,6 @@
 # Engineering Troubleshooting Runbook & Postmortem Log
 
-This runbook documents 12 genuine, evidence-based technical incidents, bugs, and edge cases encountered, root-caused, and remediated during the design and validation of this platform. Each entry preserves the real symptoms, diagnostic steps, root causes, and permanent resolutions.
+This runbook documents 13 genuine, evidence-based technical incidents, bugs, and edge cases encountered, root-caused, and remediated during the design and validation of this platform. Each entry preserves the real symptoms, diagnostic steps, root causes, and permanent resolutions.
 
 ---
 
@@ -18,6 +18,7 @@ This runbook documents 12 genuine, evidence-based technical incidents, bugs, and
 10. [Swarm `update_config` Monitor Window Shorter than Healthcheck Start Period](#10-swarm-update_config-monitor-window-shorter-than-healthcheck-start-period)
 11. [cAdvisor Crash on Startup with Unsupported `kmem` Metric Flag](#11-cadvisor-crash-on-startup-with-unsupported-kmem-metric-flag)
 12. [cAdvisor Metric Loss and 'No Data' in Grafana on Docker 29+ Containerd Snapshotter](#12-cadvisor-metric-loss-and-no-data-in-grafana-on-docker-29-containerd-snapshotter)
+13. [Traefik Swarm Provider Docker API Version Rejection on Docker 29+ ('client version 1.24 is too old')](#13-traefik-swarm-provider-docker-api-version-rejection-on-docker-29-client-version-124-is-too-old)
 
 ---
 
@@ -449,4 +450,61 @@ When accessing Grafana dashboards (`http://192.168.0.42:3000`) for container met
 3. Upgraded Node Exporter to **`prom/node-exporter:v1.12.1`**.
 4. Mirrored both images to `registry01:5000` to ensure reliable pulls across all worker nodes.
 5. Re-deployed the stack: verified that cAdvisor successfully registered all containers, emitted Swarm service labels (`container_label_com_docker_swarm_service_name`), and Grafana dashboard panels populated with live telemetry.
+
+---
+
+## 13. Traefik Swarm Provider Docker API Version Rejection on Docker 29+ ('client version 1.24 is too old')
+
+### Symptom
+When navigating to `https://shop.local/` or `http://shop.local/` in a web browser or curling the ingress endpoint, Traefik returned a plain text response:
+```text
+HTTP/2 404
+404 page not found
+```
+All frontend static assets and backend `/api/` endpoints failed with 404, even though `shop_frontend` and `shop_backend` were healthy (`2/2` replicas running) in `docker service ls`.
+
+### Diagnostic Steps
+1. Replicated the error via curl against the ingress mesh:
+   ```bash
+   curl -ik --resolve shop.local:443:127.0.0.1 https://shop.local/
+   # Returned HTTP/2 404 "404 page not found"
+   ```
+2. Inspected Traefik service logs:
+   ```bash
+   docker service logs shop_traefik --tail 50
+   ```
+   Identified continuous fatal provider errors:
+   ```text
+   ERR Failed to retrieve information of the docker client and server host error="Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.40, please upgrade your client to a newer version" providerName=swarm
+   ERR Provider error, retrying in ... error="Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.40, please upgrade your client to a newer version" providerName=swarm
+   ```
+3. Queried the Docker engine's supported API versions:
+   ```bash
+   docker version --format 'Server API: {{.Server.APIVersion}}, Min API: {{.Server.MinAPIVersion}}'
+   # Server API: 1.55, Min API: 1.40
+   ```
+
+### Root Cause
+- **Docker Engine 29+ API Baseline**: Docker Engine 29.7.2 increased its minimum supported client API version from legacy versions up to `1.40`. Any API call specifying an older API version (such as `1.24`) is actively rejected by the Docker daemon.
+- **Traefik v3.1 Client Default**: Traefik v3.1's Swarm provider defaulted its Docker client to API version `1.24` without automatic API version negotiation. Because `1.24 < 1.40`, every API query to `/var/run/docker.sock` was rejected by the engine.
+- **Zero Ingress Routes**: Because the Swarm provider could not query Swarm services, Traefik loaded zero routers and zero services for `shop.local`. When requests arrived, Traefik's fallback handler returned Go's default `404 page not found`.
+
+### Permanent Fix
+1. Upgraded Traefik image to **`traefik:v3.6`** in `stack/docker-stack.yml`:
+   ```yaml
+   traefik:
+     image: traefik:v3.6
+   ```
+   Traefik v3.6+ features native automatic Docker API version negotiation, automatically negotiating API version `1.55` with Docker 29.7.2.
+2. Mirrored `traefik:v3.6` to `registry01:5000/traefik:v3.6`.
+3. Re-deployed the stack:
+   ```bash
+   docker stack deploy --with-registry-auth --compose-file stack/docker-stack.yml shop
+   ```
+4. Traefik logs confirmed:
+   ```text
+   Provider connection established with docker 29.7.2 (API 1.55) providerName=swarm
+   ```
+5. Verified `https://shop.local/` immediately returned `HTTP/2 200 OK` serving the React/Nginx frontend, and `https://shop.local/api/products` returned `HTTP/2 200 OK` with active product data.
+
 
