@@ -101,7 +101,7 @@ Never trust an iptables configuration based solely on live terminal output. Alwa
 
 ```bash
 # 1. Apply rules using the automated script
-sudo /opt/scripts/node-firewall.sh
+sudo bash /opt/scripts/node-firewall.sh
 
 # 2. Persist rules
 sudo netfilter-persistent save
