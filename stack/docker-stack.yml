@@ -16,6 +16,9 @@
 version: "3.8"
 
 networks:
+  host:
+    external: true
+    name: host
   frontend-net:
     driver: overlay
     attachable: false
@@ -266,6 +269,8 @@ services:
   # ----------------------------------------------------------------------------
   node-exporter:
     image: prom/node-exporter:v1.12.1
+    networks:
+      - host
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
@@ -299,6 +304,8 @@ services:
   # ----------------------------------------------------------------------------
   cadvisor:
     image: ghcr.io/google/cadvisor:v0.60.5
+    networks:
+      - host
     command:
       - '--docker_only=true'
       - '--store_container_labels=false'
